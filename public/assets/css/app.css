@@ -1,0 +1,64 @@
+/* face recognation */
+.video-container {
+    position: relative;
+    width: 640px;
+    height: 480px;
+    margin: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 2px solid #00ff00; /* Green border */
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  }
+  
+
+  /* Video element */
+  #video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+  }
+
+  /* Face shape overlay */
+  .face-frame {
+    position: absolute;
+    width: 200px;
+    height: 280px;
+    border: 2px dashed #00ff00; /* Dashed green border for the face shape */
+    border-radius: 50%; /* Circular/oval shape */
+    z-index: 2;
+    pointer-events: none; /* Allow clicks to pass through */
+    animation: pulse 2s infinite; /* Add an animation for effect */
+  }
+
+  /* Animation for the face frame */
+  @keyframes pulse {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.1);
+      opacity: 0.7;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .video-container {
+      width: 100%;
+      height: 100%;
+    }
+
+    .face-frame {
+      width: 150px;
+      height: 210px;
+    }
+  }
+
