@@ -42,7 +42,7 @@
                                         <div class="invalid-feedback"></div>
                                     </div>
 
-                                    <div class="form-group" id="captcha_form" style="display: none;">
+                                    {{-- <div class="form-group" id="captcha_form" style="display: none;">
                                         <label for="captcha">Captcha</label>
                                         <div>
                                             <span id="captcha-image">
@@ -51,7 +51,7 @@
                                             <button type="button" class="btn btn-link" onclick="reloadCaptcha()"><i class="bi bi-arrow-repeat"></i></button>
                                         </div>
                                         <input type="text" id="captcha" name="captcha" class="form-control mt-2" placeholder="Enter CAPTCHA">
-                                    </div>
+                                    </div> --}}
 
                                     <div class="col-12">
                                         <div class="form-check">
@@ -59,6 +59,8 @@
                                             <label class="form-check-label" for="rememberMe">Remember me</label>
                                         </div>
                                     </div>
+
+                                    <input type="hidden" name="recaptcha_token" id="recaptcha_token">
                                     <div class="col-12">
                                         <button id="loginbtn" class="btn btn-primary w-100" type="submit" >
                                             <span class="spinner-border spinner-border-sm" id="spinner" role="status" aria-hidden="true" style="display: none"></span>
@@ -87,13 +89,13 @@
     
 
     document.addEventListener("DOMContentLoaded", function() {
-        var login_attempts =  {{ session('login_attempts', 0) }};
+        // var login_attempts =  {{ session('login_attempts', 0) }};
 
-        if (login_attempts >= 3) {
-            $('#captcha_form').show();
-        } else {
-            $('#captcha_form').hide();
-        }
+        // if (login_attempts >= 3) {
+        //     $('#captcha_form').show();
+        // } else {
+        //     $('#captcha_form').hide();
+        // }
 
         $('#email, #password').on('input', function(e) {
             var id = $(this).attr('id');
@@ -101,76 +103,80 @@
             validate(id);
         });
 
-        $('#loginForm').on('submit', function(e) {
+
+        $('#loginForm').on('submit', async function(e) {
             e.preventDefault();
 
+            // Disable the submit button to prevent multiple submissions
             $('#loginbtn').attr('disabled', true);
 
-            // check if the input fields are empty
+            // Check if the input fields are empty
             var email = validate('email');
             var password = validate('password');
 
-            // Check if either #password or #email is not empty
+            // Ensure both email and password fields are valid
             if ($('#email').val() !== '' && $('#password').val() !== '' && email && password) {
-                $.ajax({
-                    url: $(this).attr('action'),
-                    type: 'POST',
-                    data: $(this).serialize(),
-                    beforeSend: function() {
-                        $('#spinner').show();
-                        $('#textbtn').text('Logging in...');
-                    },
-                    success: function(response) {
-                        console.log(response);
-                        if (response.status === 'success') {
-                            $('#alert').removeClass('bg-danger');
-                            $('#alert').addClass('bg-success');
-                            $('#alert').show();
-                            $('#alert .message').text(response.message);
-                            // redirect to dashboard
-                            setTimeout(() => {
-                                window.location.href = '/home';
-                            }, 1000);
-                        } else {
-                            $('#loginbtn').attr('disabled', false);
-                            $('#spinner').hide();
-                            $('#textbtn').text('Login');
-                            $('#alert').removeClass('bg-success');
-                            $('#alert').addClass('bg-danger');
-                            $('#alert').show();
-                            //if response.errors is an object
-                            if (typeof response.errors === 'object') {
-                                $.each(response.errors, function(key, value) {
-                                    $('#alert .message').text(value);
-                                });
-                            } else {
-                                $('#alert .message').text(response.message);
-                            }
+                // Wait for reCAPTCHA to be ready and execute
+                try {
+                    const token = await grecaptcha.execute('6LcoOo0qAAAAAFqA6BjceefIBsQ8rVY0P8gh40np', {action: 'login'});
 
-                            login_attempts = response.attempts;
-                            if (login_attempts >= 3) {
-                                $('#captcha_form').show();
+                    // Set the reCAPTCHA token in the hidden input field
+                    $('#recaptcha_token').val(token);
+
+                    // Proceed with the AJAX form submission
+                    $.ajax({
+                        url: $(this).attr('action'),
+                        type: 'POST',
+                        data: $(this).serialize(),
+                        beforeSend: function() {
+                            $('#spinner').show();
+                            $('#textbtn').text('Logging in...');
+                        },
+                        success: function(response) {
+                            console.log(response);
+                            if (response.status === 'success') {
+                                $('#alert').removeClass('bg-danger').addClass('bg-success').show();
+                                $('#alert .message').text(response.message);
+                                // Redirect to the dashboard after a delay
+                                setTimeout(() => {
+                                    window.location.href = '/home';
+                                }, 1000);
+                            } else {
+                                handleError(response);
                             }
-                            reloadCaptcha();
+                        },
+                        error: function(error) {
+                            console.log(error);
+                            handleError({ message: 'An error occurred. Please try again later.' });
                         }
-                    },
-                    error: function(error) {
-                        console.log(error);
-                        $('#loginbtn').attr('disabled', false);
-                        $('#alert').removeClass('bg-success');
-                        $('#alert').addClass('bg-danger');
-                        $('#alert').show();
-                        $('#alert .message').text('An error occurred. Please try again later.');
-                    }
-                });
+                    });
+                } catch (error) {
+                    // Handle reCAPTCHA errors
+                    console.error('reCAPTCHA verification failed', error);
+                    handleError({ message: 'reCAPTCHA verification failed. Please try again.' });
+                }
             } else {
+                // If validation fails, re-enable the submit button and show an alert
                 $('#loginbtn').attr('disabled', false);
                 $('#alert').removeClass('bg-success');
             }
-
-            // Optionally, you can proceed to submit the form using AJAX or redirect
-            // this.submit(); // Uncomment this to submit the form normally after the alert
         });
+
+        // Helper function to handle errors and show alerts
+        function handleError(response) {
+            $('#loginbtn').attr('disabled', false);
+            $('#spinner').hide();
+            $('#textbtn').text('Login');
+            $('#alert').removeClass('bg-success').addClass('bg-danger').show();
+            if (typeof response.errors === 'object') {
+                $.each(response.errors, function(key, value) {
+                    $('#alert .message').text(value);
+                });
+            } else {
+                $('#alert .message').text(response.message);
+            }
+        }
+
     });
 
     function validate(id) {
@@ -197,18 +203,18 @@
         return true;
     }
 
-    function reloadCaptcha() {
-        // Send an AJAX request to get a new CAPTCHA image
-        $.ajax({
-            url: '/reload-captcha',
-            type: 'GET',
-            success: function(data) {
-                $('#captcha-image').html(data.captcha);
-            },
-            error: function(xhr, status, error) {
-                console.error('Error reloading CAPTCHA:', status, error);
-            }
-        });
-    }
+    // function reloadCaptcha() {
+    //     // Send an AJAX request to get a new CAPTCHA image
+    //     $.ajax({
+    //         url: '/reload-captcha',
+    //         type: 'GET',
+    //         success: function(data) {
+    //             $('#captcha-image').html(data.captcha);
+    //         },
+    //         error: function(xhr, status, error) {
+    //             console.error('Error reloading CAPTCHA:', status, error);
+    //         }
+    //     });
+    // }
 
 </script>

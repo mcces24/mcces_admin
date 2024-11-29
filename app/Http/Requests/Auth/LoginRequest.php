@@ -10,7 +10,8 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
-use Mews\Captcha\Facades\Captcha;
+// use Mews\Captcha\Facades\Captcha;
+use GuzzleHttp\Client;
 
 class LoginRequest extends FormRequest
 {
@@ -34,12 +35,13 @@ class LoginRequest extends FormRequest
         $rules = [
             'email' => 'required|email',
             'password' => 'required|string',
+            'recaptcha_token' => 'required',
         ];
 
-        $attempts = session()->get('login_attempts');
-        if ($attempts >= 3) {
-            $rules['captcha'] = 'required|captcha';
-        }
+        // $attempts = session()->get('login_attempts');
+        // if ($attempts >= 3) {
+        //     $rules['captcha'] = 'required|captcha';
+        // }
 
         return $rules;
     }
@@ -50,8 +52,8 @@ class LoginRequest extends FormRequest
             'email.required' => 'Please enter your email address.',
             'email.email' => 'The email address you entered is invalid.',
             'password.required' => 'Please enter your password.',
-            'captcha.required' => 'The CAPTCHA is required.',
-            'captcha.captcha' => 'The CAPTCHA is incorrect.',
+            // 'captcha.required' => 'The CAPTCHA is required.',
+            // 'captcha.captcha' => 'The CAPTCHA is incorrect.',
         ];
     }
     
@@ -70,11 +72,11 @@ class LoginRequest extends FormRequest
         );
     }
 
-    public function generateCaptcha()
-    {
-        // Custom CAPTCHA generation: 5 or 6 alphanumeric characters
-        return Captcha::create('default', true)->setLength(5)->setChars('23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ');
-    }
+    // public function generateCaptcha()
+    // {
+    //     // Custom CAPTCHA generation: 5 or 6 alphanumeric characters
+    //     return Captcha::create('default', true)->setLength(5)->setChars('23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ');
+    // }
     /**
      * Attempt to authenticate the request's credentials.
      *
@@ -82,6 +84,18 @@ class LoginRequest extends FormRequest
      */
     public function authenticate()
     {
+
+        // Capture reCAPTCHA token from the request
+        $recaptchaToken = $this->input('recaptcha_token');
+        
+        // Verify reCAPTCHA token
+        $recaptchaVerified = $this->verifyRecaptcha($recaptchaToken);
+
+        // If reCAPTCHA verification fails, return an error
+        if (!$recaptchaVerified) {
+            return response()->json(['status' => 'failed', 'message' => 'reCAPTCHA verification failed. Please try again.']);
+        }
+
         $attempts = RateLimiter::attempts($this->throttleKey());
         if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
     
@@ -101,6 +115,27 @@ class LoginRequest extends FormRequest
         RateLimiter::clear($this->throttleKey());
 
         return response()->json(['status' => 'success', 'message' => 'Login successful. Redirecting...']);
+    }
+
+    protected function verifyRecaptcha($token)
+    {
+        $client = new Client();
+        
+        // Secret key from your Google reCAPTCHA settings
+        $secretKey = '6LcoOo0qAAAAAErElkW4fGrHy9u1mXAwPIZNDt8u';
+        
+        // Send the token to Google for verification
+        $response = $client->post('https://www.google.com/recaptcha/api/siteverify', [
+            'form_params' => [
+                'secret' => $secretKey,
+                'response' => $token,
+            ]
+        ]);
+
+        $body = json_decode($response->getBody());
+
+        // If reCAPTCHA verification was successful and score is acceptable (e.g., > 0.5)
+        return isset($body->success) && $body->success && $body->score >= 0.5;
     }
 
     /**
