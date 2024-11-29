@@ -67,6 +67,6 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [AccountController::class, 'destroy'])->name('profile.destroy');
 });
 
-Route::get('/reload-captcha', [HomeController::class, 'reloadCaptcha']);
+// Route::get('/reload-captcha', [HomeController::class, 'reloadCaptcha']);
 
 require __DIR__.'/auth.php';

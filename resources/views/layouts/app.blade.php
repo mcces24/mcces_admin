@@ -93,6 +93,9 @@
 
     <!-- Face API -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    
+    {{-- recaptcha --}}
+    <script src="https://www.google.com/recaptcha/api.js?render=6LcoOo0qAAAAAFqA6BjceefIBsQ8rVY0P8gh40np"></script>
 </body>
 
 </html>
