@@ -151,7 +151,7 @@ class LoginRequest extends FormRequest
         }
        
         // Check if the user has exceeded the maximum allowed attempts for their current time window
-        if (RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
+        if (RateLimiter::tooManyAttempts($this->throttleKey(), 3)) {
             // If too many attempts have been made, trigger the lockout event
             event(new Lockout($this));
 
