@@ -14,6 +14,7 @@ abstract class Controller
     protected $alerts;
     protected $messages;
     protected $user;
+    protected $id;
 
     // Constructor
     public function __construct()
@@ -36,12 +37,14 @@ abstract class Controller
             $this->alerts = $alerts;
             $this->messages = $messages;
             $this->user = $user;
+            $this->id = hash('sha256', $user->id);
         } else {
             $this->name = null;
             $this->profile_pic = null;
             $this->alerts = null;
             $this->messages = null;
             $this->user = null;
+            $this->id = null;
         }
 
         if ($user && $user->face_recognition_flg == 1) {
@@ -54,6 +57,7 @@ abstract class Controller
             //delete
             setcookie('face_recognition', '', time() - 3600, "/");
             setcookie('recognition_success', '', time() - 3600, "/");
+            setcookie('__PHP_FACE_ID__', '', time() - 3600, "/");
         }
 
         // Share the data with all views
@@ -62,6 +66,7 @@ abstract class Controller
         View::share('alerts', $this->alerts);
         View::share('messages', $this->messages);
         View::share('profile_pic', $this->profile_pic);
+        View::share('id', $this->id);
     }
 
     // Method to get user notifications (for example purposes)
