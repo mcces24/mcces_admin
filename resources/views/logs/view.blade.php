@@ -51,6 +51,7 @@
               <div class="col-lg-6">
                 <p><strong>Latitude:</strong> {{ $log->lat }}</p>
                 <p><strong>Longitude:</strong> {{ $log->lon }}</p>
+                <p><strong>IP Address:</strong> {{ $log->ip_address }}</p>
                 <p><strong>Complete Location:</strong> {{ $log->com_location }}</p>
               </div>
           </div>
