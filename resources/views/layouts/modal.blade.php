@@ -4,8 +4,6 @@
     <div class="modal-dialog modal-lg">
     <div class="modal-content">
         <div class="modal-body">
-            <img style="display: none;" id="inputImageMyFace" src="{{ asset('assets/face_recognition_images/myface.jpg') }}" alt="Face for recognition" width="200"/>
-            <img style="display: none;" id="inputImage" src="{{ !empty($user->face_recognition_image) ? asset($user->face_recognition_image) : asset('assets/face_recognition_images/other.png') }}" alt="Face for recognition" width="200"/>
             <h5 class="modal-title text-center">Face Recognation</h5>
             <p class="text-center notes">Please position your face at the camera</p>
             <div class="video-container">
@@ -29,7 +27,6 @@
                 </div>
             </div>
             <canvas style="display: none" id="canvas" width="200" height="150"></canvas>
-            <button style="display: none"  id="startDetection">Start Face Detection</button>
         </div>
     </div>
     </div>
@@ -40,12 +37,12 @@
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        const startDetectionButton = document.getElementById('startDetection');
         let attempts = 0;
-        let isRecognition = getCookie('isRecognition');
+        let faceId= getCookie('__PHP_FACE_ID__');
+        let id = '{{ $id }}';
 
         if (document.cookie.indexOf('face_recognition=1') == -1) {
-            if (isRecognition == 'true') {
+            if (faceId == '{{ $id }}') {
                 return;
             } else {
                 setTimeout(function(){
@@ -53,7 +50,7 @@
                 }, 1000);
 
                 setTimeout(() => {
-                    startDetectionButton.click();
+                    startDetection();
                 }, 2000);
             }
         } else {
@@ -90,36 +87,27 @@
 
         // Load the image and extract embeddings for known faces
         async function loadFaceApi() {
-            const image = document.getElementById('inputImageMyFace');
-            const detections = await faceapi.detectAllFaces(image)
-                .withFaceLandmarks()
-                .withFaceDescriptors();
+            try {
+                // Replace with the actual image URL or fetch the image element
+                const imageURL = '{{ !empty($user->face_recognition_image) ? asset($user->face_recognition_image) : asset('assets/face_recognition_images/other.png') }}';
+                const image = await faceapi.fetchImage(imageURL);
 
-            // Get the first face descriptor (embedding)
-            if (detections.length > 0) {
-                const embedding = detections[0].descriptor;
-                const name = '{{ $user->name }}'; // Replace with actual name
-                knownFaceEmbeddings.push({ name, embedding });
-                console.log('Known face embeddings:', knownFaceEmbeddings);
-            } else {
-                console.warn('No face detected in the input image');
-            }
-        }
+                // Perform face detection
+                const detections = await faceapi.detectAllFaces(image)
+                    .withFaceLandmarks()
+                    .withFaceDescriptors();
 
-        async function loadFaceApiMyface() {
-            const image = document.getElementById('inputImageMyFace');
-            const detections = await faceapi.detectAllFaces(image)
-                .withFaceLandmarks()
-                .withFaceDescriptors();
-
-            // Get the first face descriptor (embedding)
-            if (detections.length > 0) {
-                const embedding = detections[0].descriptor;
-                const name = 'MCCES Developer'; // Replace with actual name
-                knownFaceEmbeddings.push({ name, embedding });
-                console.log('Known face embeddings:', knownFaceEmbeddings);
-            } else {
-                console.warn('No face detected in the input image');
+                // Handle the face detections
+                if (detections.length > 0) {
+                    const embedding = detections[0].descriptor;
+                    const name = '{{ $user->name }}'; // Replace with actual name dynamically if needed
+                    knownFaceEmbeddings.push({ name, embedding });
+                    console.log('Known face embeddings:', knownFaceEmbeddings);
+                } else {
+                    console.warn('No face detected in the input image');
+                }
+            } catch (error) {
+                console.error('Error loading or processing face API:', error);
             }
         }
 
@@ -162,16 +150,16 @@
                 });
             }
 
-            // Draw the current video frame to the canvas
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            setTimeout(async ()=> {
+                // Draw the current video frame to the canvas
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            // Use the captured canvas image for face detection
-            const capturedImage = canvas; // Canvas as input for face-api
-            const detections = await faceapi.detectAllFaces(capturedImage)
-                .withFaceLandmarks()
-                .withFaceDescriptors();
-
-            setTimeout(() => {
+                // Use the captured canvas image for face detection
+                const capturedImage = canvas; // Canvas as input for face-api
+                const detections = await faceapi.detectAllFaces(capturedImage)
+                    .withFaceLandmarks()
+                    .withFaceDescriptors();
+                
                 if (detections.length > 0) {
                     detections.forEach(async detection => {
                         // Draw bounding box around detected face
@@ -190,19 +178,20 @@
 
                         if (recognizedName === '{{ $user->name }}') {
                             //set new cookies recognition_success = true
-                            setCookie('isRecognition', 'true', 12);
+                            setCookie('__PHP_FACE_ID__', id, 12);
 
                             //sweet alert
                             Swal.fire({
                                 title: 'Face Recognized',
                                 text: 'You have been successfully recognized.',
                                 icon: 'success',
-                                timer: 3000
+                                timer: 2000,
+                                showConfirmButton: false
                             }).then(() => {
                                 window.location.reload();
                             });
                         } else {
-                            setCookie('isRecognition', 'false', 12);
+                            setCookie('__PHP_FACE_ID__', null, 12);
                             attempts++;
                             setTimeout(() => {
                                 captureAndCompare();
@@ -239,12 +228,11 @@
         }
 
         // Event listener for button to start detection
-        startDetectionButton.addEventListener('click', async () => {
+        async function startDetection() {
             await loadModels();  // Ensure models are loaded
             await loadFaceApi(); // Load known faces
-            await loadFaceApiMyface(); // Load known faces
             captureAndCompare(); // Capture and compare the face
-        });
+        }
 
         // Prevent modal from closing using JavaScript
         $('#faceRecognation').on('hide.bs.modal', function (e) {
